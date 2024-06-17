@@ -1,12 +1,21 @@
 from fastapi import FastAPI
-from app.routers import auth, tickets, events
+from fastapi.middleware.cors import CORSMiddleware
+from routers import auth, tickets, events
 
 app = FastAPI()
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
-app.include_router(events.router, prefix="/events", tags=["events"])
+origins = [
+    "http://localhost:3000",
+]
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(tickets.router)
+app.include_router(events.router)

@@ -1,22 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from app.database import get_db
-from app.crud import create_user, get_user_by_username
-import sqlite3
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from passlib.context import CryptContext
+from models import User
 
-router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+router = APIRouter(prefix="/auth")
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+fake_db = {
+    "users": []
+}
 
 @router.post("/signup")
-def signup(username: str, email: str, password: str, db: sqlite3.Connection = Depends(get_db)):
-    if get_user_by_username(db, username):
-        raise HTTPException(status_code=400, detail="Username already registered")
-    user_id = create_user(db, username, email, password)
-    return {"id": user_id, "username": username, "email": email}
+async def signup(user: User):
+    hashed_password = pwd_context.hash(user.password)
+    user.password = hashed_password
+    fake_db["users"].append(user.dict())
+    return {"msg": "User signed up successfully"}
 
 @router.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: sqlite3.Connection = Depends(get_db)):
-    user = get_user_by_username(db, form_data.username)
-    if not user or not pwd_context.verify(form_data.password, user["hashed_password"]):
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    return {"access_token": user["username"], "token_type": "bearer"}
+async def login(user: User):
+    user_in_db = next((u for u in fake_db["users"] if u["username"] == user.username), None)
+    if not user_in_db:
+        raise HTTPException(status_code=400, detail="Invalid username or password")
+    if not pwd_context.verify(user.password, user_in_db["password"]):
+        raise HTTPException(status_code=400, detail="Invalid username or password")
+    return {"msg": "Login successful"}
